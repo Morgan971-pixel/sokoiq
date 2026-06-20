@@ -76,3 +76,11 @@ def test_get_briefs_row_has_expected_fields(tmp_path):
     row = get_briefs(db_path=db)[0]
     for field in ("id", "ticker", "company_name", "recommendation", "confidence", "thesis", "generated_at"):
         assert field in row
+
+
+def test_save_and_retrieve_round_trip(tmp_path):
+    db = tmp_path / "test.db"
+    init_db(db)
+    brief_id = save_brief(_brief(), db_path=db)
+    results = get_briefs(db_path=db)
+    assert any(r["id"] == brief_id for r in results)
