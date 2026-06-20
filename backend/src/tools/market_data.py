@@ -5,13 +5,7 @@ from src.models import MarketData
 
 HEADERS = {"User-Agent": "SokoIQ/1.0 (student research project)"}
 
-NSE_TICKERS = {
-    "SCOM": "safaricom",
-    "EQTY": "equity-group-holdings",
-    "KCB": "kcb-group",
-    "EABL": "east-african-breweries",
-    "KEGN": "kengen",
-}
+AFX_BASE_URL = "https://afx.kwayisi.org/nse/{ticker}/"
 
 
 def compute_returns(ticker: str, prices: list[float]) -> MarketData:
@@ -48,31 +42,62 @@ def compute_returns(ticker: str, prices: list[float]) -> MarketData:
     )
 
 
+def parse_afx_html(ticker: str, html: str) -> MarketData:
+    soup = BeautifulSoup(html, "html.parser")
+    tables = soup.find_all("table")
+
+    current_price: float | None = None
+    history_table = next((t for t in tables if "Close" in t.get_text()), None)
+    if history_table:
+        for row in history_table.find_all("tr")[1:]:
+            cells = [c.get_text(strip=True) for c in row.find_all(["td", "th"])]
+            if len(cells) >= 3 and cells[2]:
+                try:
+                    current_price = float(cells[2].replace(",", ""))
+                    break
+                except ValueError:
+                    continue
+
+    return_30d: float | None = None
+    return_90d: float | None = None
+    perf_table = next((t for t in tables if "4WK" in t.get_text()), None)
+    if perf_table:
+        rows = perf_table.find_all("tr")
+        if len(rows) >= 2:
+            cells = [c.get_text(strip=True) for c in rows[1].find_all(["td", "th"])]
+            if len(cells) >= 2:
+                try:
+                    return_30d = float(cells[1].rstrip("%"))
+                except ValueError:
+                    pass
+            if len(cells) >= 3:
+                try:
+                    return_90d = float(cells[2].rstrip("%"))
+                except ValueError:
+                    pass
+
+    if return_30d is not None:
+        trend = "bullish" if return_30d > 2.0 else "bearish" if return_30d < -2.0 else "neutral"
+    else:
+        trend = "neutral"
+
+    return MarketData(
+        ticker=ticker,
+        current_price_kes=current_price,
+        return_30d_pct=round(return_30d, 2) if return_30d is not None else None,
+        return_90d_pct=round(return_90d, 2) if return_90d is not None else None,
+        trend=trend,
+        data_source="afx.kwayisi.org",
+    )
+
+
 async def fetch_market_data(ticker: str) -> MarketData:
-    slug = NSE_TICKERS.get(ticker, ticker.lower())
-    url = f"https://www.african-markets.com/en/stock-markets/nse/listed-companies/{slug}"
+    url = AFX_BASE_URL.format(ticker=ticker)
     try:
         async with httpx.AsyncClient(timeout=20, headers=HEADERS) as client:
             r = await client.get(url, follow_redirects=True)
             r.raise_for_status()
-        soup = BeautifulSoup(r.text, "lxml")
-        prices = []
-        price_tags = soup.find_all("td", class_=lambda c: c and "price" in c.lower())
-        for tag in price_tags:
-            try:
-                prices.append(float(tag.text.strip().replace(",", "")))
-            except ValueError:
-                continue
-        if not prices:
-            price_td = soup.find(
-                "td",
-                string=lambda s: s and s.strip().replace(".", "").replace(",", "").isdigit()
-            )
-            if price_td:
-                prices = [float(price_td.text.strip().replace(",", ""))]
-        if prices:
-            return compute_returns(ticker, prices)
-        return MarketData(ticker=ticker, data_source="african-markets.com (no data parsed)")
+        return parse_afx_html(ticker, r.text)
     except httpx.HTTPStatusError as e:
         return MarketData(ticker=ticker, data_source=f"HTTP {e.response.status_code}")
     except httpx.TransportError as e:
