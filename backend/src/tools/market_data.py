@@ -42,7 +42,7 @@ def compute_returns(ticker: str, prices: list[float]) -> MarketData:
         current_price_kes=latest,
         return_30d_pct=round(return_30d, 2),
         return_90d_pct=round(return_90d, 2),
-        volatility_30d=round(volatility, 3) if volatility else None,
+        volatility_30d=round(volatility, 3) if volatility is not None else None,
         trend=trend,
         data_source="african-markets.com",
     )
