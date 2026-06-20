@@ -8,9 +8,11 @@ const WS_BASE = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000").rep
 export function createResearchSocket(
   ticker: string,
   onEvent: (event: WsEvent) => void,
-  onClose?: () => void
+  onClose?: () => void,
+  demo = false
 ): WebSocket {
-  const ws = new WebSocket(`${WS_BASE}/ws/research/${ticker}`);
+  const url = `${WS_BASE}/ws/research/${ticker}${demo ? "?demo=true" : ""}`;
+  const ws = new WebSocket(url);
   ws.onmessage = (e) => {
     try {
       const event = JSON.parse(e.data as string) as WsEvent;

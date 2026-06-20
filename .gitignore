@@ -11,3 +11,7 @@ dist/
 build/
 .DS_Store
 *.log
+evals/eval_results.json
+evals/eval_summary.txt
+frontend/tsconfig.tsbuildinfo
+sokoiq.db

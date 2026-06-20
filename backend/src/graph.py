@@ -5,9 +5,9 @@ from typing import AsyncGenerator
 from anthropic import AsyncAnthropic
 from src.config import settings
 from src.models import FilingData, MarketData, NewsData, InvestmentBrief, AgentStep
-from src.tools.nse_filings import fetch_filing
+from src.tools.nse_filings import fetch_filing, fetch_filing_broad
 from src.tools.market_data import fetch_market_data
-from src.tools.news_fetcher import fetch_news
+from src.tools.news_fetcher import fetch_news, fetch_news_broad
 
 
 def _synthesize_brief_local(
@@ -170,6 +170,15 @@ async def run_research_pipeline(
 
     filing = await _fetch_filing(ticker, company_name)
 
+    if filing.revenue_growth_pct is None and not demo:
+        yield {"type": "step", "data": AgentStep(
+            agent="filing_analyst", status="running",
+            message="No financial metrics found — trying broader search..."
+        ).model_dump()}
+        filing_retry = await fetch_filing_broad(ticker, company_name)
+        if filing_retry.revenue_growth_pct is not None:
+            filing = filing_retry
+
     yield {"type": "step", "data": AgentStep(
         agent="filing_analyst", status="done",
         message=f"Extracted filing data for {filing.period}",
@@ -196,6 +205,15 @@ async def run_research_pipeline(
     ).model_dump()}
 
     news = await _fetch_news(ticker)
+
+    if len(news.articles) < 3 and not demo:
+        yield {"type": "step", "data": AgentStep(
+            agent="news_analyst", status="running",
+            message=f"Only {len(news.articles)} articles found — trying broader search..."
+        ).model_dump()}
+        news_retry = await fetch_news_broad(ticker)
+        if len(news_retry.articles) > len(news.articles):
+            news = news_retry
 
     yield {"type": "step", "data": AgentStep(
         agent="news_analyst", status="done",

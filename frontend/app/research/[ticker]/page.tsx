@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { AgentFeed } from "@/components/AgentFeed";
 import { BriefPanel } from "@/components/BriefPanel";
 import { createResearchSocket } from "@/lib/ws";
@@ -9,6 +9,8 @@ import type { AgentStep, InvestmentBrief, WsEvent } from "@/lib/types";
 
 export default function ResearchPage() {
   const { ticker } = useParams<{ ticker: string }>();
+  const searchParams = useSearchParams();
+  const demo = searchParams.get("demo") === "true";
   const [steps, setSteps] = useState<AgentStep[]>([]);
   const [brief, setBrief] = useState<InvestmentBrief | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +37,8 @@ export default function ResearchPage() {
           setRunning(false);
         }
       },
-      () => setRunning(false)
+      () => setRunning(false),
+      demo
     );
   };
 
