@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
@@ -7,6 +8,8 @@ from src.db import get_briefs, init_db, save_brief
 from src.graph import run_research_pipeline
 from src.models import COMPANIES, InvestmentBrief, TICKER_MAP
 from src.ws_manager import manager
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -59,7 +62,7 @@ async def research_ws(websocket: WebSocket, ticker: str, demo: bool = False) -> 
                 try:
                     save_brief(InvestmentBrief(**event["data"]))
                 except Exception:
-                    pass
+                    logger.warning("Brief persistence failed for %s", ticker)
     except WebSocketDisconnect:
         pass
     except Exception as exc:
