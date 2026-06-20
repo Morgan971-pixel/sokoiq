@@ -34,11 +34,13 @@ export default async function HistoryPage() {
           </p>
         )}
 
-        {!fetchError && briefs.length === 0 ? (
+        {!fetchError && briefs.length === 0 && (
           <p className="text-gray-500 text-sm">
             No briefs generated yet. Run research on a company to see results here.
           </p>
-        ) : (
+        )}
+
+        {!fetchError && briefs.length > 0 && (
           <div className="space-y-3">
             {briefs.map((b) => (
               <Link key={b.id} href={`/research/${b.ticker}`} aria-label={`View research brief for ${b.company_name} (${b.ticker})`} className="block group">
