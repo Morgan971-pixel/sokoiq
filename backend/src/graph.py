@@ -1,5 +1,6 @@
 import json
-from datetime import datetime
+import re
+from datetime import datetime, timezone
 from typing import AsyncGenerator
 from anthropic import AsyncAnthropic
 from src.config import settings
@@ -8,7 +9,11 @@ from src.tools.nse_filings import fetch_filing
 from src.tools.market_data import fetch_market_data
 from src.tools.news_fetcher import fetch_news
 
-client = AsyncAnthropic(api_key=settings.anthropic_api_key)
+
+def _get_client() -> AsyncAnthropic:
+    if not settings.anthropic_api_key:
+        raise RuntimeError("ANTHROPIC_API_KEY is not set in environment")
+    return AsyncAnthropic(api_key=settings.anthropic_api_key)
 
 
 async def _synthesize_brief(
@@ -18,6 +23,11 @@ async def _synthesize_brief(
     market: MarketData,
     news: NewsData,
 ) -> InvestmentBrief:
+    source_url = filing.source_url or "N/A"
+    commentary = filing.management_commentary[:300]
+    if len(filing.management_commentary) > 300:
+        commentary += "..."
+
     prompt = f"""You are an equity research analyst. Based on the following data for {company_name} ({ticker}),
 write a structured investment brief. Respond ONLY with valid JSON matching this schema exactly:
 {{
@@ -28,7 +38,7 @@ write a structured investment brief. Respond ONLY with valid JSON matching this 
   "market_summary": "<2-3 sentences on price performance>",
   "news_summary": "<2-3 sentences on recent news and sentiment>",
   "key_risks": ["<risk 1>", "<risk 2>", "<risk 3>"],
-  "citations": ["{filing.source_url}"]
+  "citations": ["<source url>"]
 }}
 
 FILING DATA:
@@ -36,7 +46,8 @@ Period: {filing.period}
 Revenue growth: {filing.revenue_growth_pct}%
 Profit growth: {filing.profit_growth_pct}%
 Key risks from filing: {filing.key_risks}
-Management commentary: {filing.management_commentary[:300]}
+Management commentary: {commentary}
+Source URL: {source_url}
 
 MARKET DATA:
 Current price: KES {market.current_price_kes}
@@ -50,17 +61,24 @@ Drivers: {news.sentiment_drivers}
 
 Respond with JSON only. No markdown. No explanation."""
 
+    client = _get_client()
     response = await client.messages.create(
         model="claude-haiku-3-5-20251001",
         max_tokens=1024,
         messages=[{"role": "user", "content": prompt}],
     )
     raw = response.content[0].text.strip()
-    data = json.loads(raw)
+    cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw, flags=re.MULTILINE).strip()
+    try:
+        data = json.loads(cleaned)
+    except json.JSONDecodeError as exc:
+        raise ValueError(
+            f"LLM returned invalid JSON: {exc}. Raw response: {raw[:400]!r}"
+        ) from exc
     return InvestmentBrief(
         ticker=ticker,
         company_name=company_name,
-        generated_at=datetime.utcnow().isoformat() + "Z",
+        generated_at=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         **data,
     )
 
