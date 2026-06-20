@@ -126,21 +126,25 @@ sokoiq/
       models.py         Pydantic models: FilingData, MarketData, NewsData, InvestmentBrief
       demo_data.py      Hardcoded data for demo mode
       ws_manager.py     ConnectionManager for WebSocket rooms
+      db.py             SQLite persistence: save and query InvestmentBriefs
       tools/
         nse_filings.py  Google News RSS financial extraction
         market_data.py  afx.kwayisi.org HTML parser
         news_fetcher.py Google News RSS sentiment parser
-    tests/              40 pytest tests
+    tests/              54 pytest tests
   frontend/
     app/
+      layout.tsx                Root layout with nav bar (Companies + History)
       page.tsx                  Company grid (fetches /companies)
       research/[ticker]/        Research page, WebSocket client
+      history/page.tsx          History page: past briefs list
     components/
       AgentFeed.tsx             Streaming step log with status icons
       BriefPanel.tsx            Brief display: recommendation badge, 3-column layout
     lib/
       ws.ts                     createResearchSocket() factory
       types.ts                  TypeScript discriminated unions for WsEvent
+      api.ts                    getCompanies() and getHistory() REST clients
   evals/
     eval_briefs.py              Runs all 5 companies, saves JSON + summary
   .env                          ANTHROPIC_API_KEY (gitignored)
