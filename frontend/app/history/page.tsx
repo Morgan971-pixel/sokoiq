@@ -9,12 +9,18 @@ const REC_COLORS: Record<string, string> = {
   NEUTRAL: "bg-gray-500/20   text-gray-400   border border-gray-500/30",
 };
 
+function formatDate(raw: string): string {
+  const d = new Date(raw);
+  return isNaN(d.getTime()) ? "—" : d.toLocaleDateString();
+}
+
 export default async function HistoryPage() {
   let briefs: BriefSummary[] = [];
+  let fetchError = false;
   try {
     briefs = await getHistory();
   } catch {
-    // backend not running
+    fetchError = true;
   }
 
   return (
@@ -22,14 +28,20 @@ export default async function HistoryPage() {
       <div className="max-w-4xl mx-auto">
         <h1 className="text-2xl font-bold text-white mb-8">Research History</h1>
 
-        {briefs.length === 0 ? (
+        {fetchError && (
+          <p className="text-red-400 text-sm mb-4">
+            Could not load history. Check that the API server is running.
+          </p>
+        )}
+
+        {!fetchError && briefs.length === 0 ? (
           <p className="text-gray-500 text-sm">
             No briefs generated yet. Run research on a company to see results here.
           </p>
         ) : (
           <div className="space-y-3">
             {briefs.map((b) => (
-              <Link key={b.id} href={`/research/${b.ticker}`} className="block group">
+              <Link key={b.id} href={`/research/${b.ticker}`} aria-label={`View research brief for ${b.company_name} (${b.ticker})`} className="block group">
                 <div className="bg-gray-900 border border-gray-800 rounded-lg p-4 group-hover:border-gray-600 transition-colors">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -46,7 +58,7 @@ export default async function HistoryPage() {
                         {Math.round(b.confidence * 100)}%
                       </span>
                       <span className="text-gray-600 text-xs">
-                        {new Date(b.generated_at).toLocaleDateString()}
+                        {formatDate(b.generated_at)}
                       </span>
                     </div>
                   </div>
