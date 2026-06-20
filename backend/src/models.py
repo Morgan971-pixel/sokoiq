@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Literal
+from typing import Any, Literal
 from datetime import datetime
 
 
@@ -74,4 +74,4 @@ class AgentStep(BaseModel):
     agent: str
     status: Literal["running", "done", "error"]
     message: str
-    data: dict = Field(default_factory=dict)
+    data: dict[str, Any] = Field(default_factory=dict)
