@@ -1,0 +1,104 @@
+import pytest
+from unittest.mock import AsyncMock, patch
+from src.graph import run_research_pipeline
+from src.models import FilingData, MarketData, NewsData
+
+
+@pytest.mark.asyncio
+async def test_pipeline_returns_brief():
+    with patch("src.graph.fetch_filing", new_callable=AsyncMock) as mock_filing, \
+         patch("src.graph.fetch_market_data", new_callable=AsyncMock) as mock_market, \
+         patch("src.graph.fetch_news", new_callable=AsyncMock) as mock_news, \
+         patch("src.graph._synthesize_brief", new_callable=AsyncMock) as mock_synth:
+
+        mock_filing.return_value = FilingData(
+            ticker="SCOM", company_name="Safaricom PLC", period="FY2024",
+            revenue_growth_pct=11.0, profit_growth_pct=8.0,
+            raw_excerpt="Revenue grew 11%."
+        )
+        mock_market.return_value = MarketData(
+            ticker="SCOM", current_price_kes=36.50,
+            return_30d_pct=4.2, trend="bullish"
+        )
+        mock_news.return_value = NewsData(
+            ticker="SCOM", company_name="Safaricom PLC",
+            overall_sentiment="positive"
+        )
+        from src.models import InvestmentBrief
+        from datetime import datetime
+        mock_synth.return_value = InvestmentBrief(
+            ticker="SCOM",
+            company_name="Safaricom PLC",
+            generated_at=datetime.utcnow().isoformat() + "Z",
+            recommendation="BUY",
+            confidence=0.82,
+            thesis="Strong M-Pesa growth.",
+            financials_summary="Revenue grew 11%.",
+            market_summary="30d return +4.2%.",
+            news_summary="Positive sentiment.",
+            key_risks=["competition"],
+        )
+
+        steps = []
+        brief = None
+        async for event in run_research_pipeline("SCOM", "Safaricom PLC"):
+            if event.get("type") == "step":
+                steps.append(event["data"])
+            elif event.get("type") == "brief":
+                brief = event["data"]
+
+        assert len(steps) >= 3
+        assert brief is not None
+        assert brief["ticker"] == "SCOM"
+        assert brief["recommendation"] in {"BUY", "HOLD", "SELL", "NEUTRAL"}
+
+
+@pytest.mark.asyncio
+async def test_pipeline_streams_named_agents():
+    with patch("src.graph.fetch_filing", new_callable=AsyncMock) as mock_filing, \
+         patch("src.graph.fetch_market_data", new_callable=AsyncMock) as mock_market, \
+         patch("src.graph.fetch_news", new_callable=AsyncMock) as mock_news, \
+         patch("src.graph._synthesize_brief", new_callable=AsyncMock) as mock_synth:
+
+        mock_filing.return_value = FilingData(ticker="EQTY", company_name="Equity Group", period="FY2024")
+        mock_market.return_value = MarketData(ticker="EQTY")
+        mock_news.return_value = NewsData(ticker="EQTY", company_name="Equity Group")
+        from src.models import InvestmentBrief
+        from datetime import datetime
+        mock_synth.return_value = InvestmentBrief(
+            ticker="EQTY", company_name="Equity Group Holdings",
+            generated_at=datetime.utcnow().isoformat() + "Z",
+            recommendation="HOLD", confidence=0.5,
+            thesis="t", financials_summary="f",
+            market_summary="m", news_summary="n",
+        )
+
+        agent_names = set()
+        async for event in run_research_pipeline("EQTY", "Equity Group Holdings"):
+            if event.get("type") == "step":
+                agent_names.add(event["data"]["agent"])
+
+        assert "filing_analyst" in agent_names
+        assert "market_analyst" in agent_names
+        assert "news_analyst" in agent_names
+        assert "memo_writer" in agent_names
+
+
+@pytest.mark.asyncio
+async def test_pipeline_handles_synthesis_error_gracefully():
+    with patch("src.graph.fetch_filing", new_callable=AsyncMock) as mock_filing, \
+         patch("src.graph.fetch_market_data", new_callable=AsyncMock) as mock_market, \
+         patch("src.graph.fetch_news", new_callable=AsyncMock) as mock_news, \
+         patch("src.graph._synthesize_brief", new_callable=AsyncMock) as mock_synth:
+
+        mock_filing.return_value = FilingData(ticker="KCB", company_name="KCB Group", period="FY2024")
+        mock_market.return_value = MarketData(ticker="KCB")
+        mock_news.return_value = NewsData(ticker="KCB", company_name="KCB Group")
+        mock_synth.side_effect = Exception("LLM timeout")
+
+        statuses = []
+        async for event in run_research_pipeline("KCB", "KCB Group PLC"):
+            if event.get("type") == "step" and event["data"]["agent"] == "memo_writer":
+                statuses.append(event["data"]["status"])
+
+        assert "error" in statuses
