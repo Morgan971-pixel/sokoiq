@@ -28,3 +28,25 @@ def test_parse_filing_text_empty_gracefully():
     result = parse_filing_text("SCOM", "Safaricom PLC", "")
     assert result.ticker == "SCOM"
     assert result.raw_excerpt == ""
+
+
+from src.tools.market_data import compute_returns
+
+
+def test_compute_returns_positive_trend():
+    prices = [100.0, 102.0, 105.0, 103.0, 108.0]
+    result = compute_returns("SCOM", prices)
+    assert result.return_30d_pct is not None
+    assert result.trend in {"bullish", "bearish", "neutral"}
+
+
+def test_compute_returns_empty_list():
+    result = compute_returns("SCOM", [])
+    assert result.return_30d_pct is None
+    assert result.trend == "neutral"
+
+
+def test_compute_returns_declining():
+    prices = [100.0, 98.0, 95.0, 92.0, 90.0]
+    result = compute_returns("SCOM", prices)
+    assert result.trend == "bearish"
