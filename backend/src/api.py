@@ -62,7 +62,7 @@ async def research_ws(websocket: WebSocket, ticker: str, demo: bool = False) -> 
                 try:
                     save_brief(InvestmentBrief(**event["data"]))
                 except Exception:
-                    logger.warning("Brief persistence failed for %s", ticker)
+                    logger.warning("Brief persistence failed for %s", ticker, exc_info=True)
     except WebSocketDisconnect:
         pass
     except Exception as exc:
