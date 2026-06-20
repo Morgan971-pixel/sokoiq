@@ -28,3 +28,13 @@ export type WsEvent =
   | { type: "step"; data: AgentStep }
   | { type: "brief"; data: InvestmentBrief }
   | { type: "error"; data: { message: string } };
+
+export interface BriefSummary {
+  id: string;
+  ticker: string;
+  company_name: string;
+  recommendation: "BUY" | "HOLD" | "SELL" | "NEUTRAL";
+  confidence: number;
+  thesis: string;
+  generated_at: string;
+}
