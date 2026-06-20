@@ -4,7 +4,8 @@ Run the research pipeline against all 5 NSE companies and save the outputs.
 Usage:
     cd sokoiq
     source backend/venv/bin/activate
-    python evals/eval_briefs.py
+    python evals/eval_briefs.py           # live mode (requires API credits + network)
+    python evals/eval_briefs.py --demo    # demo mode (no network, no API credits needed)
 
 Outputs:
     evals/eval_results.json  — raw brief JSON for all companies
@@ -16,6 +17,8 @@ import pathlib
 import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent / "backend"))
+
+DEMO_MODE = "--demo" in sys.argv
 
 from src.graph import run_research_pipeline
 from src.models import COMPANIES
@@ -34,7 +37,9 @@ async def run_evals() -> list[dict]:
 
         brief = None
         try:
-            async for event in run_research_pipeline(company.ticker, company.company_name):
+            async for event in run_research_pipeline(
+                company.ticker, company.company_name, demo=DEMO_MODE
+            ):
                 if event["type"] == "step":
                     d = event["data"]
                     icon = {"running": "...", "done": "OK ", "error": "ERR"}[d["status"]]
@@ -85,4 +90,6 @@ async def run_evals() -> list[dict]:
 
 
 if __name__ == "__main__":
+    mode = "DEMO" if DEMO_MODE else "LIVE"
+    print(f"SokoIQ Eval  [{mode} MODE]")
     asyncio.run(run_evals())
