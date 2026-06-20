@@ -1,11 +1,14 @@
 import json
+import os
 import sqlite3
 import uuid
 from pathlib import Path
 
 from src.models import InvestmentBrief
 
-_DEFAULT_DB_PATH = Path(__file__).parent.parent / "sokoiq.db"
+_DEFAULT_DB_PATH = Path(
+    os.environ.get("DB_PATH", str(Path(__file__).parent.parent / "sokoiq.db"))
+)
 
 
 def init_db(db_path: Path = _DEFAULT_DB_PATH) -> None:
