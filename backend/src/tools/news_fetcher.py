@@ -37,7 +37,7 @@ def build_news_data(
     ticker: str, company_name: str, articles: list[NewsItem]
 ) -> NewsData:
     if not articles:
-        return NewsData(ticker=ticker, company_name=company_name)
+        return NewsData(ticker=ticker, company_name=company_name, overall_sentiment="neutral")
     sentiments = [a.sentiment for a in articles]
     pos = sentiments.count("positive")
     neg = sentiments.count("negative")

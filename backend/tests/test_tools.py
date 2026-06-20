@@ -1,6 +1,8 @@
 import pytest
+from src.models import COMPANIES
 from src.tools.nse_filings import parse_filing_text, NSE_FILING_URLS
 from src.tools.market_data import compute_returns
+from src.tools.news_fetcher import classify_sentiment, build_news_data
 
 
 def test_parse_filing_text_extracts_revenue():
@@ -19,7 +21,6 @@ def test_parse_filing_text_extracts_revenue():
 
 
 def test_filing_urls_has_all_companies():
-    from src.models import COMPANIES
     for company in COMPANIES:
         assert company.ticker in NSE_FILING_URLS, \
             f"Missing filing URL for {company.ticker}"
@@ -53,9 +54,6 @@ def test_compute_returns_declining():
     assert result.return_30d_pct == pytest.approx(-10.0, abs=0.1)
 
 
-from src.tools.news_fetcher import classify_sentiment, build_news_data
-
-
 def test_classify_sentiment_positive():
     assert classify_sentiment("Company reports strong profit growth") == "positive"
 
@@ -68,8 +66,11 @@ def test_classify_sentiment_neutral():
     assert classify_sentiment("Company holds annual general meeting") == "neutral"
 
 
+def test_classify_sentiment_tied_returns_neutral():
+    assert classify_sentiment("strong loss") == "neutral"
+
+
 def test_build_news_data_no_articles():
-    from src.models import NewsItem
     result = build_news_data("SCOM", "Safaricom PLC", [])
     assert result.overall_sentiment == "neutral"
     assert result.articles == []
