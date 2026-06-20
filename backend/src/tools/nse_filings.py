@@ -67,6 +67,7 @@ async def fetch_filing(ticker: str, company_name: str) -> FilingData:
             period="Unknown",
             raw_excerpt=f"No filing URL configured for {ticker}",
         )
+    tmp_path: str | None = None
     try:
         async with httpx.AsyncClient(timeout=30, headers=HEADERS) as client:
             response = await client.get(url, follow_redirects=True)
@@ -77,14 +78,20 @@ async def fetch_filing(ticker: str, company_name: str) -> FilingData:
         text = ""
         with pdfplumber.open(tmp_path) as pdf:
             for page in pdf.pages[:20]:
-                page_text = page.extract_text() or ""
-                text += page_text + "\n"
-        pathlib.Path(tmp_path).unlink(missing_ok=True)
+                text += (page.extract_text() or "") + "\n"
         return parse_filing_text(ticker, company_name, text)
+    except httpx.HTTPStatusError as e:
+        raw_excerpt = f"HTTP {e.response.status_code} fetching filing for {ticker}"
+    except httpx.TransportError as e:
+        raw_excerpt = f"Network error fetching filing: {str(e)[:200]}"
     except Exception as e:
-        return FilingData(
-            ticker=ticker,
-            company_name=company_name,
-            period="Unknown",
-            raw_excerpt=f"Fetch error: {str(e)[:200]}",
-        )
+        raw_excerpt = f"Parse error: {str(e)[:200]}"
+    finally:
+        if tmp_path:
+            pathlib.Path(tmp_path).unlink(missing_ok=True)
+    return FilingData(
+        ticker=ticker,
+        company_name=company_name,
+        period="Unknown",
+        raw_excerpt=raw_excerpt,
+    )

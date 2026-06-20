@@ -12,6 +12,9 @@ def test_parse_filing_text_extracts_revenue():
     result = parse_filing_text("SCOM", "Safaricom PLC", sample)
     assert result.ticker == "SCOM"
     assert result.raw_excerpt != ""
+    assert result.revenue_growth_pct == 11.0
+    assert result.profit_growth_pct == 8.0
+    assert len(result.key_risks) >= 1
 
 
 def test_filing_urls_has_all_companies():
