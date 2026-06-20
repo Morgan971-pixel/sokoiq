@@ -51,3 +51,25 @@ def test_compute_returns_declining():
     result = compute_returns("SCOM", prices)
     assert result.trend == "bearish"
     assert result.return_30d_pct == pytest.approx(-10.0, abs=0.1)
+
+
+from src.tools.news_fetcher import classify_sentiment, build_news_data
+
+
+def test_classify_sentiment_positive():
+    assert classify_sentiment("Company reports strong profit growth") == "positive"
+
+
+def test_classify_sentiment_negative():
+    assert classify_sentiment("Company issues profit warning amid losses") == "negative"
+
+
+def test_classify_sentiment_neutral():
+    assert classify_sentiment("Company holds annual general meeting") == "neutral"
+
+
+def test_build_news_data_no_articles():
+    from src.models import NewsItem
+    result = build_news_data("SCOM", "Safaricom PLC", [])
+    assert result.overall_sentiment == "neutral"
+    assert result.articles == []
