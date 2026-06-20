@@ -12,6 +12,7 @@ _DEFAULT_DB_PATH = Path(
 
 
 def init_db(db_path: Path = _DEFAULT_DB_PATH) -> None:
+    db_path.parent.mkdir(parents=True, exist_ok=True)
     with sqlite3.connect(db_path) as conn:
         conn.execute("""
             CREATE TABLE IF NOT EXISTS briefs (
